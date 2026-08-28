@@ -1,6 +1,6 @@
 # DataSci26
 
-## SUbtitle
+## Subtitle
 
 - item 1
 - item 2
