@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Learn Drums - Mini Drum Machine</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .app {
+    width: min(1050px, 100%);
+    background: #1d1d1d;
+    border: 2px solid #333;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 15px 45px rgba(0,0,0,.45);
+  }
+
+  h1 { margin: 0 0 5px; font-size: 28px; }
+  .subtitle { margin: 0 0 22px; color: #aaa; }
+
+  .top {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  button, select, input {
+    font: inherit;
+  }
+
+  button, select {
+    background: #2b2b2b;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 9px;
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+
+  button:hover, select:hover { background: #383838; }
+  #play.active { background: #eee; color: #111; }
+
+  .tempo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  input[type="range"] { accent-color: white; }
+
+  .lesson {
+    background: #262626;
+    border-radius: 12px;
+    padding: 15px 18px;
+    margin-bottom: 20px;
+    border-left: 4px solid #eee;
+  }
+
+  .lesson strong { display: block; margin-bottom: 5px; }
+  .lesson span { color: #c9c9c9; line-height: 1.45; }
+
+  .sequencer {
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 110px repeat(16, minmax(34px, 1fr));
+    gap: 6px;
+    min-width: 750px;
+  }
+
+  .cell, .label, .beat {
+    height: 40px;
+    border-radius: 7px;
+  }
+
+  .label {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+    padding-left: 8px;
+  }
+
+  .beat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-size: 12px;
+  }
+
+  .cell {
+    background: #292929;
+    border: 1px solid #444;
+    cursor: pointer;
+  }
+
+  .cell:hover { border-color: #aaa; }
+  .cell.on { background: #eee; border-color: #fff; }
+  .cell.playing {
+    outline: 2px solid #777;
+    outline-offset: 1px;
+  }
+  .cell.on.playing {
+    background: #bbb;
+  }
+
+  .section {
+    margin-top: 22px;
+  }
+
+  .section h2 {
+    font-size: 18px;
+    margin: 0 0 10px;
+  }
+
+  .tips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .tip {
+    background: #242424;
+    border-radius: 10px;
+    padding: 13px;
+    color: #ccc;
+    line-height: 1.4;
+  }
+
+  .tip b { color: white; }
+
+  .hint {
+    margin-top: 18px;
+    font-size: 13px;
+    color: #888;
+  }
+
+  @media (max-width: 700px) {
+    .app { padding: 17px; }
+    .tempo { margin-left: 0; width: 100%; }
+    .tips { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🥁 Learn Drums</h1>
+  <p class="subtitle">Build a beat while learning what each drum does.</p>
+
+  <div class="top">
+    <button id="play">▶ Play</button>
+    <button id="clear">Clear</button>
+    <button id="demo">Load Beginner Beat</button>
+    <select id="lesson">
+      <option value="basic">Lesson 1: Basic Beat</option>
+      <option value="rock">Lesson 2: Rock Beat</option>
+      <option value="funk">Lesson 3: Funk Starter</option>
+    </select>
+    <div class="tempo">
+      <label for="bpm">BPM <span id="bpmValue">100</span></label>
+      <input id="bpm" type="range" min="60" max="160" value="100">
+    </div>
+  </div>
+
+  <div class="lesson">
+    <strong id="lessonTitle">Lesson 1: The basic beat</strong>
+    <span id="lessonText">
+      Start with the kick on beats 1 and 3, and the snare on beats 2 and 4.
+      Add hi-hats on every step to keep time.
+    </span>
+  </div>
+
+  <div class="sequencer">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="section">
+    <h2>What you're learning</h2>
+    <div class="tips">
+      <div class="tip"><b>Kick:</b> The low “boom.” It gives the beat its foundation.</div>
+      <div class="tip"><b>Snare:</b> The sharp “crack.” It often lands on beats 2 and 4.</div>
+      <div class="tip"><b>Hi-hat:</b> The “tss” sound. It helps you keep a steady rhythm.</div>
+    </div>
+  </div>
+
+  <div class="hint">Tip: A 16-step row represents one bar. Try changing one sound at a time and listen to what changes.</div>
+</div>
+
+<script>
+const sounds = ["Kick", "Snare", "Hi-Hat"];
+const grid = document.getElementById("grid");
+const playBtn = document.getElementById("play");
+const bpm = document.getElementById("bpm");
+const bpmValue = document.getElementById("bpmValue");
+const lesson = document.getElementById("lesson");
+const lessonTitle = document.getElementById("lessonTitle");
+const lessonText = document.getElementById("lessonText");
+
+let pattern = [
+  [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+  [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+let playing = false;
+let step = 0;
+let timer = null;
+let audioCtx = null;
+
+function buildGrid() {
+  grid.innerHTML = "";
+  grid.appendChild(document.createElement("div"));
+  for (let i = 0; i < 16; i++) {
+    const beat = document.createElement("div");
+    beat.className = "beat";
+    beat.textContent = i % 4 === 0 ? (i / 4 + 1) : "·";
+    grid.appendChild(beat);
+  }
+
+  sounds.forEach((sound, r) => {
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = sound;
+    grid.appendChild(label);
+
+    for (let c = 0; c < 16; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell" + (pattern[r][c] ? " on" : "");
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.onclick = () => {
+        pattern[r][c] = pattern[r][c] ? 0 : 1;
+        cell.classList.toggle("on");
+      };
+      grid.appendChild(cell);
+    }
+  });
+}
+
+function loadPattern(type) {
+  if (type === "basic") {
+    pattern = [
+      [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+      [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      Array(16).fill(1)
+    ];
+    lessonTitle.textContent = "Lesson 1: The basic beat";
+    lessonText.textContent = "Kick on 1 and 3, snare on 2 and 4, and hi-hat on every step. This is a great starting point for understanding rhythm.";
+  } else if (type === "rock") {
+    pattern = [
+      [1,0,0,0,1,0,0,1,1,0,0,0,1,0,0,1],
+      [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+      Array(16).fill(1)
+    ];
+    lessonTitle.textContent = "Lesson 2: Rock beat";
+    lessonText.textContent = "Keep the snare on 2 and 4, but add a few extra kicks. Notice how the beat feels stronger and more active.";
+  } else {
+    pattern = [
+      [1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0],
+      [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
+      [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0]
+    ];
+    lessonTitle.textContent = "Lesson 3: Funk starter";
+    lessonText.textContent = "Funk uses space and syncopation. Some hits happen between the main beats, creating a more bouncy groove.";
+  }
+  buildGrid();
+}
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function playSound(row) {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  if (row === 0) {
+    osc.frequency.setValueAtTime(130, now);
+    osc.frequency.exponentialRampToValueAtTime(55, now + 0.12);
+    gain.gain.setValueAtTime(0.9, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  } else if (row === 1) {
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(180, now);
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  } else {
+    osc.type = "square";
+    osc.frequency.setValueAtTime(9000, now);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+  }
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.2);
+}
+
+function tick() {
+  document.querySelectorAll(".cell").forEach(c => c.classList.remove("playing"));
+  for (let r = 0; r < 3; r++) {
+    const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${step}"]`);
+    if (cell) {
+      cell.classList.add("playing");
+      if (pattern[r][step]) playSound(r);
+    }
+  }
+  step = (step + 1) % 16;
+}
+
+function start() {
+  if (playing) return;
+  ensureAudio();
+  playing = true;
+  playBtn.textContent = "■ Stop";
+  playBtn.classList.add("active");
+  tick();
+  timer = setInterval(tick, (60000 / Number(bpm.value)) / 4);
+}
+
+function stop() {
+  playing = false;
+  clearInterval(timer);
+  timer = null;
+  document.querySelectorAll(".cell").forEach(c => c.classList.remove("playing"));
+  playBtn.textContent = "▶ Play";
+  playBtn.classList.remove("active");
+}
+
+playBtn.onclick = () => playing ? stop() : start();
+
+bpm.oninput = () => {
+  bpmValue.textContent = bpm.value;
+  if (playing) {
+    clearInterval(timer);
+    timer = setInterval(tick, (60000 / Number(bpm.value)) / 4);
+  }
+};
+
+document.getElementById("clear").onclick = () => {
+  pattern = Array.from({length: 3}, () => Array(16).fill(0));
+  buildGrid();
+};
+
+document.getElementById("demo").onclick = () => loadPattern(lesson.value);
+lesson.onchange = () => loadPattern(lesson.value);
+
+buildGrid();
+</script>
+</body>
+</html>
